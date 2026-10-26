@@ -1,8 +1,10 @@
 namespace QuestGlow
 {
-    // Quests that have to be done for the Collector (Kappa) and for Lightkeeper, then the quests
-    // that lock each other out. K = Kappa, L = Lightkeeper, X = lock-out. Grouped by the trader
-    // who gives the quest. A quest can be in both parts, its flags are added together.
+    // The built-in list, used until Quest Glow's server part answers, or when it isn't installed.
+    // Worked out from SPT 4.1's quest data the same way the server part does it: every quest on the
+    // way to the Collector (Kappa) and to Knock-Knock (Lightkeeper), then the quests that lock each
+    // other out. K = Kappa, L = Lightkeeper, X = lock-out. Grouped by the trader who gives the quest.
+    // A quest can be in both parts, its flags are added together.
     internal static partial class QuestList
     {
         private static readonly (string Id, Need Need)[] Entries =
@@ -33,7 +35,6 @@ namespace QuestGlow
             ("5fd9fad9c1ce6b1a3b486d00", K),     // Search Mission
             ("5967725e86f774601a446662", K | L), // Shaking Up the Teller
             ("657315df034d76585f032e01", K | L), // Shooting Cans
-            ("59674cd986f7744ab26e32f2", K),     // Shootout Picnic
             ("5c0bd94186f7747a727f09b2", K),     // Test Drive - Part 1
             ("63a5cf262964a7488f5243ce", K),     // Test Drive - Part 2
             ("64f5deac39e45b527a7c4232", K),     // Test Drive - Part 3
@@ -72,12 +73,9 @@ namespace QuestGlow
             ("5a68669a86f774255929b4d4", K),     // Health Care Privacy - Part 5
             ("669fa3a3ad7f1eac2607ed48", K),     // Health Care Privacy - Part 6
             ("6179afd0bca27a099552e040", K | L), // Lost Contact
-            ("59689fbd86f7740d137ebfc4", K),     // Operation Aquarius - Part 1
-            ("5968eb3186f7741dde183a4d", K),     // Operation Aquarius - Part 2
             ("597a160786f77477531d39d2", K | L), // Out of Curiosity
             ("5969f90786f77420d2328015", K | L), // Painkiller
             ("5969f9e986f7741dde183a50", K | L), // Pharmacist
-            ("596760e186f7741e11214d58", K),     // Postman Pat - Part 2
             ("5c0be5fc86f774467a116593", K),     // Private Clinic
             ("59689ee586f7740d1570bbd5", K | L), // Sanitary Standards - Part 1
             ("596a204686f774576d4c95de", K | L), // Sanitary Standards - Part 2

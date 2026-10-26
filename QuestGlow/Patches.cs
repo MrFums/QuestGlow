@@ -37,7 +37,7 @@ namespace QuestGlow
 
         private static void TraderListPostfix(QuestListItem __instance, Quest quest)
         {
-            Mark(__instance.transform, __instance.transform.GetSiblingIndex(), quest);
+            Mark(__instance.transform, __instance.transform.GetSiblingIndex(), quest, fitToList: false);
         }
 
         private static void NotesTaskPostfix(NotesTask __instance, Quest quest)
@@ -48,7 +48,7 @@ namespace QuestGlow
             if (row == null && __instance._taskLabel != null)
                 row = ChildContaining(__instance.transform, __instance._taskLabel.transform);
 
-            Mark(row != null ? row : __instance.transform, __instance.transform.GetSiblingIndex(), quest);
+            Mark(row != null ? row : __instance.transform, __instance.transform.GetSiblingIndex(), quest, fitToList: true);
         }
 
         private static Transform ChildContaining(Transform root, Transform t)
@@ -58,12 +58,12 @@ namespace QuestGlow
             return t;
         }
 
-        private static void Mark(Transform box, int row, Quest quest)
+        private static void Mark(Transform box, int row, Quest quest, bool fitToList)
         {
             try
             {
                 Need need = quest?.Template != null ? QuestList.Get(quest.Template.Id) : Need.None;
-                QuestBeam.Attach(box, need, row);
+                QuestBeam.Attach(box, need, row, fitToList);
             }
             catch (Exception e)
             {

@@ -18,7 +18,7 @@ namespace QuestGlow
     public class Plugin : BaseUnityPlugin
     {
         public const string Guid = "com.fums.questglow";
-        public const string Name = "Quest Glow";
+        public const string Name = "Fums-QuestGlow";
         public const string Version = "1.0.0";
 
         internal static ManualLogSource Log;
@@ -89,7 +89,8 @@ namespace QuestGlow
                 return;
             }
 
-            Logger.LogInfo($"{Name} {Version} loaded ({QuestList.Count} quests marked).");
+            Logger.LogInfo($"{Name} {Version} loaded ({QuestList.Count} quests in the built-in list).");
+            QuestList.Fetch();
         }
     }
 }

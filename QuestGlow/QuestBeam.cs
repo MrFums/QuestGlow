@@ -38,15 +38,24 @@ namespace QuestGlow
         }
 
         private Need _need;
+        // only Character > Tasks needs the outline fitted to the list, the trader screen draws on the box
+        private bool _fitToList;
         private float _offset;
         private bool _drawing;
+        // how often the masks above the box are looked up again, in seconds
+        private const float ClipRefresh = 1f;
+        // how far the line is kept inside a mask drawn from an image, in canvas pixels
+        private const float EdgeMargin = 2f;
+
         private readonly List<RectTransform> _clips = new List<RectTransform>(4);
-        private bool _clipsFound;
+        private readonly List<Vector4> _clipPadding = new List<Vector4>(4);
+        private readonly List<bool> _clipIsImage = new List<bool>(4);
+        private float _clipsFoundAt = float.NegativeInfinity;
         private readonly Color[] _colors = new Color[3];
         private readonly Vector3[] _corners = new Vector3[4];
         private readonly List<float> _samples = new List<float>(256);
 
-        internal static void Attach(Transform box, Need need, int row)
+        internal static void Attach(Transform box, Need need, int row, bool fitToList)
         {
             if (box == null)
                 return;
@@ -66,8 +75,9 @@ namespace QuestGlow
                 beam = Create(box);
 
             beam._need = need;
+            beam._fitToList = fitToList;
             beam._offset = -row * RowStagger;
-            beam._clipsFound = false;
+            beam._clipsFoundAt = float.NegativeInfinity;
             beam.transform.SetAsLastSibling();
             beam.gameObject.SetActive(true);
             beam.SetVerticesDirty();
@@ -138,7 +148,7 @@ namespace QuestGlow
             _drawing = count > 0;
 
             float glow = Plugin.Glow.Value;
-            Rect r = VisibleRect(glow);
+            Rect r = _fitToList ? VisibleRect(glow) : rectTransform.rect;
             if (count == 0 || r.width < 2f || r.height < 2f)
                 return;
 
@@ -195,14 +205,30 @@ namespace QuestGlow
         {
             Rect r = rectTransform.rect;
             float left = float.NegativeInfinity, right = float.PositiveInfinity;
+            float imageLeft = float.NegativeInfinity, imageRight = float.PositiveInfinity;
 
-            foreach (RectTransform clip in Clips())
+            List<RectTransform> clips = Clips();
+            for (int i = 0; i < clips.Count; i++)
             {
+                RectTransform clip = clips[i];
                 if (clip == null)
                     continue;
                 clip.GetWorldCorners(_corners);
-                left = Mathf.Max(left, rectTransform.InverseTransformPoint(_corners[0]).x);
-                right = Mathf.Min(right, rectTransform.InverseTransformPoint(_corners[2]).x);
+                // a RectMask2D can clip inside its own edges (padding x is left, z is right)
+                Vector3 inLeft = clip.TransformVector(new Vector3(_clipPadding[i].x, 0f, 0f));
+                Vector3 inRight = clip.TransformVector(new Vector3(_clipPadding[i].z, 0f, 0f));
+                float l = rectTransform.InverseTransformPoint(_corners[0] + inLeft).x;
+                float rr = rectTransform.InverseTransformPoint(_corners[2] - inRight).x;
+                if (_clipIsImage[i])
+                {
+                    imageLeft = Mathf.Max(imageLeft, l);
+                    imageRight = Mathf.Min(imageRight, rr);
+                }
+                else
+                {
+                    left = Mathf.Max(left, l);
+                    right = Mathf.Min(right, rr);
+                }
             }
 
             // leave room for the glow, but only where the box actually runs over the edge
@@ -211,34 +237,67 @@ namespace QuestGlow
                 r.xMax = Mathf.Max(right - room, r.xMin);
             if (r.xMin < left - 0.5f)
                 r.xMin = Mathf.Min(left + room, r.xMax);
+
+            // A mask drawn from an image hides its last couple of pixels. On Character > Tasks the
+            // row ends exactly on one, so the line is pulled in to stay in the row's border and
+            // the glow is left to be cut off there.
+            if (r.xMax > imageRight - EdgeMargin)
+                r.xMax = Mathf.Max(imageRight - EdgeMargin, r.xMin);
+            if (r.xMin < imageLeft + EdgeMargin)
+                r.xMin = Mathf.Min(imageLeft + EdgeMargin, r.xMax);
             return r;
         }
 
         // Everything above the box that can cut it off: each mask (the task row's own mask can be
         // as wide as the row, so the first one found isn't enough), each scroll view's viewport
-        // (the scrollbar sits beside it), and the screen.
+        // (the scrollbar sits beside it), and the screen. Looked up again now and then: a task row
+        // can be moved into the list, or a mask switched on, after the beam was first drawn.
         private List<RectTransform> Clips()
         {
-            if (_clipsFound)
+            if (Time.unscaledTime - _clipsFoundAt < ClipRefresh)
                 return _clips;
 
-            _clipsFound = true;
+            _clipsFoundAt = Time.unscaledTime;
             _clips.Clear();
+            _clipPadding.Clear();
+            _clipIsImage.Clear();
             for (Transform t = transform.parent; t != null; t = t.parent)
             {
                 var rectMask = t.GetComponent<RectMask2D>();
                 var mask = t.GetComponent<Mask>();
-                if ((rectMask != null && rectMask.enabled) || (mask != null && mask.enabled))
-                    _clips.Add(t as RectTransform);
+                if (rectMask != null && rectMask.enabled)
+                    AddClip(t as RectTransform, rectMask.padding);
+                else if (mask != null && mask.enabled)
+                    AddClip(t as RectTransform, Vector4.zero);
 
                 var scroll = t.GetComponent<ScrollRect>();
                 if (scroll != null && scroll.viewport != null)
-                    _clips.Add(scroll.viewport);
+                    AddClip(scroll.viewport, Vector4.zero);
             }
 
             if (canvas != null)
-                _clips.Add(canvas.rootCanvas.transform as RectTransform);
+                AddClip(canvas.rootCanvas.transform as RectTransform, Vector4.zero);
             return _clips;
+        }
+
+        private void AddClip(RectTransform clip, Vector4 padding)
+        {
+            var mask = clip != null ? clip.GetComponent<Mask>() : null;
+            _clips.Add(clip);
+            _clipPadding.Add(padding);
+            _clipIsImage.Add(mask != null && mask.enabled);
+        }
+
+        protected override void OnTransformParentChanged()
+        {
+            base.OnTransformParentChanged();
+            _clipsFoundAt = float.NegativeInfinity;
+        }
+
+        protected override void OnCanvasHierarchyChanged()
+        {
+            base.OnCanvasHierarchyChanged();
+            _clipsFoundAt = float.NegativeInfinity;
         }
 
         // Draws the outline between two distances along the edge (clockwise from the top left
